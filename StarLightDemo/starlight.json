@@ -1,0 +1,104 @@
+{
+  "name": "starlight-language",
+  "version": "0.1.0",
+  "description": "Starlight programming language - Write once, run anywhere Java does, and anywhere JavaScript does",
+  "license": "MIT",
+  "keywords": [
+    "programming-language",
+    "jvm",
+    "javascript",
+    "webassembly",
+    "cross-platform",
+    "java-interop"
+  ],
+  "homepage": "https://github.com/starlight-lang/starlight",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/starlight-lang/starlight.git"
+  },
+  "bugs": {
+    "url": "https://github.com/starlight-lang/starlight/issues"
+  },
+  "author": {
+    "name": "Starlight Team",
+    "email": "team@starlight.io"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "java": ">=11"
+  },
+  "scripts": {
+    "build": "jstarc build",
+    "test": "jstarc test",
+    "clean": "jstarc clean",
+    "dev": "jstarc watch",
+    "benchmark": "jstarc benchmark"
+  },
+  "targets": {
+    "jvm": {
+      "main": "examples/HelloWorld",
+      "output": "build/starlight-demo.jar",
+      "jvmTarget": "11"
+    },
+    "js": {
+      "main": "examples/HelloWorld", 
+      "output": "build/starlight-demo.js",
+      "format": "esm",
+      "minify": true,
+      "treeShaking": true
+    },
+    "wasm": {
+      "main": "examples/HelloWorld",
+      "output": "build/starlight-demo.wasm",
+      "optimize": "size"
+    }
+  },
+  "dependencies": {
+    "jvm": [],
+    "js": [],
+    "wasm": []
+  },
+  "devDependencies": {
+    "jvm": [
+      "junit:junit:4.13.2",
+      "org.mockito:mockito-core:4.6.1"
+    ],
+    "js": [
+      "rollup",
+      "@rollup/plugin-node-resolve",
+      "@rollup/plugin-commonjs",
+      "@rollup/plugin-terser"
+    ],
+    "wasm": [
+      "llvm",
+      "binaryen"
+    ]
+  },
+  "build": {
+    "sourceDir": "src",
+    "outputDir": "build",
+    "testDir": "test",
+    "include": [
+      "**/*.sl"
+    ],
+    "exclude": [
+      "**/*.test.sl",
+      "**/node_modules/**",
+      "**/build/**"
+    ]
+  },
+  "compiler": {
+    "version": "0.1.0",
+    "optimization": {
+      "level": "standard",
+      "inlineThreshold": 100,
+      "deadCodeElimination": true,
+      "constantFolding": true
+    },
+    "warnings": {
+      "unusedVariables": true,
+      "unreachableCode": true,
+      "typeMismatch": true
+    }
+  }
+}
