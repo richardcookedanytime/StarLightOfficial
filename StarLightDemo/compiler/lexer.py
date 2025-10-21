@@ -118,6 +118,7 @@ class Lexer:
         # 关键字映射
         self.keywords = {
             'func': TokenType.FUNC,
+            'fun': TokenType.FUNC,
             'let': TokenType.LET,
             'var': TokenType.VAR,
             'const': TokenType.CONST,

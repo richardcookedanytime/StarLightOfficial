@@ -2,3 +2,31 @@
 // Module: webApp
 
 export { main };
+
+function createButton() {
+    let button = document;
+    createElement("button");
+    button;
+    textContent;
+    return button;
+}
+
+function handleClick() {
+    console;
+    log("Button clicked!");
+    alert("Hello from Starlight!");
+}
+
+function main() {
+    let button = createButton();
+    button;
+    addEventListener("click", handleClick);
+    document;
+    body;
+    appendChild(button);
+    console;
+    log("Web app initialized!");
+}
+
+// Auto-call main function
+main();

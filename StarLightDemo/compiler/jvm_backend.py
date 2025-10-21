@@ -54,6 +54,8 @@ class JVMCodeGenerator:
         for stmt in program.statements:
             if isinstance(stmt, FunctionDeclaration) and stmt.name != "main":
                 self._generate_function(stmt)
+            elif isinstance(stmt, DataClassDeclaration):
+                self._generate_data_class(stmt)
         
         # 生成类尾
         self._generate_class_footer()
@@ -74,16 +76,18 @@ class JVMCodeGenerator:
         """生成 main 方法"""
         self.java_code.append("    public static void main(String[] args) {")
         
-        # 查找 main 函数调用
-        main_called = False
+        # 查找 main 函数
+        main_function = None
         for stmt in program.statements:
             if isinstance(stmt, FunctionDeclaration) and stmt.name == "main":
-                self._generate_function_body(stmt.body, indent="        ")
-                main_called = True
+                main_function = stmt
                 break
         
-        if not main_called:
-            # 生成其他语句
+        if main_function:
+            # 生成 main 函数体
+            self._generate_function_body(main_function.body, indent="        ")
+        else:
+            # 如果没有 main 函数，生成其他非函数声明语句
             for stmt in program.statements:
                 if not isinstance(stmt, FunctionDeclaration):
                     self._generate_statement(stmt, indent="        ")
@@ -94,11 +98,20 @@ class JVMCodeGenerator:
     def _generate_function(self, func: FunctionDeclaration):
         """生成函数"""
         # 生成方法签名
-        return_type = JVMType.from_starlight_type(func.return_type or "void")
+        if func.return_type:
+            return_type = JVMType.from_starlight_type(func.return_type)
+        else:
+            # 推断返回类型
+            return_type = self._infer_return_type(func.body)
+        
         params = []
         
         for param_name, param_type in func.parameters:
-            jvm_type = JVMType.from_starlight_type(param_type or "any")
+            if param_type:
+                jvm_type = JVMType.from_starlight_type(param_type)
+            else:
+                # 如果没有指定类型，使用 Object
+                jvm_type = JVMType.from_starlight_type("any")
             params.append(f"{jvm_type.java_type} {param_name}")
         
         method_signature = f"public static {return_type.java_type} {func.name}({', '.join(params)}) {{"
@@ -109,6 +122,106 @@ class JVMCodeGenerator:
         
         self.java_code.append("    }")
         self.java_code.append("")
+    
+    def _generate_data_class(self, data_class: DataClassDeclaration):
+        """生成数据类"""
+        # 生成数据类定义
+        self.java_code.append(f"    public static class {data_class.name} {{")
+        
+        # 生成字段
+        for field_name, field_type in data_class.fields:
+            java_type = JVMType.from_starlight_type(field_type)
+            self.java_code.append(f"        public {java_type.java_type} {field_name};")
+        
+        self.java_code.append("")
+        
+        # 生成构造函数
+        self._generate_data_class_constructor(data_class)
+        
+        # 生成方法
+        for method in data_class.methods:
+            self._generate_data_class_method(data_class.name, method)
+        
+        self.java_code.append("    }")
+        self.java_code.append("")
+    
+    def _generate_data_class_constructor(self, data_class: DataClassDeclaration):
+        """生成数据类构造函数"""
+        params = []
+        assignments = []
+        
+        for field_name, field_type in data_class.fields:
+            java_type = JVMType.from_starlight_type(field_type)
+            params.append(f"{java_type.java_type} {field_name}")
+            assignments.append(f"        this.{field_name} = {field_name};")
+        
+        self.java_code.append(f"        public {data_class.name}({', '.join(params)}) {{")
+        for assignment in assignments:
+            self.java_code.append(assignment)
+        self.java_code.append("        }")
+        self.java_code.append("")
+    
+    def _generate_data_class_method(self, class_name: str, method: FunctionDeclaration):
+        """生成数据类方法"""
+        return_type = JVMType.from_starlight_type(method.return_type or "void")
+        params = []
+        
+        for param_name, param_type in method.parameters:
+            jvm_type = JVMType.from_starlight_type(param_type or "any")
+            params.append(f"{jvm_type.java_type} {param_name}")
+        
+        method_signature = f"        public {return_type.java_type} {method.name}({', '.join(params)}) {{"
+        self.java_code.append(method_signature)
+        
+        # 生成方法体
+        self._generate_function_body(method.body, indent="            ")
+        
+        self.java_code.append("        }")
+        self.java_code.append("")
+    
+    def _infer_return_type(self, body: List[Statement]) -> JVMType:
+        """推断函数返回类型"""
+        for stmt in body:
+            if isinstance(stmt, ReturnStatement) and stmt.value:
+                # 根据返回值推断类型
+                if isinstance(stmt.value, Literal):
+                    if stmt.value.type == "string":
+                        return JVMType.from_starlight_type("string")
+                    elif stmt.value.type == "integer":
+                        return JVMType.from_starlight_type("int")
+                    elif stmt.value.type == "float":
+                        return JVMType.from_starlight_type("float")
+                    elif stmt.value.type == "boolean":
+                        return JVMType.from_starlight_type("boolean")
+                elif isinstance(stmt.value, BinaryOp):
+                    # 对于二元操作，根据操作符和操作数推断类型
+                    if stmt.value.operator == '+' and self._is_string_operation(stmt.value):
+                        # 字符串拼接操作
+                        return JVMType.from_starlight_type("string")
+                    elif stmt.value.operator in ['+', '-', '*', '/', '%']:
+                        # 算术操作，推断为 int
+                        return JVMType.from_starlight_type("int")
+                    else:
+                        # 其他操作，推断为字符串
+                        return JVMType.from_starlight_type("string")
+                elif isinstance(stmt.value, Call):
+                    # 对于函数调用，返回 Object
+                    return JVMType.from_starlight_type("any")
+        
+        # 默认返回 void
+        return JVMType.from_starlight_type("void")
+    
+    def _is_string_operation(self, binary_op: BinaryOp) -> bool:
+        """检查是否是字符串操作"""
+        # 检查左操作数是否是字符串字面量
+        if isinstance(binary_op.left, Literal) and binary_op.left.type == "string":
+            return True
+        # 检查右操作数是否是字符串字面量
+        if isinstance(binary_op.right, Literal) and binary_op.right.type == "string":
+            return True
+        # 检查是否是字符串变量（只有在明确是字符串操作时才返回 True）
+        # 对于算术操作，即使有标识符也不应该是字符串操作
+        return False
     
     def _generate_function_body(self, body: List[Statement], indent: str = ""):
         """生成函数体"""
@@ -129,6 +242,12 @@ class JVMCodeGenerator:
             self._generate_while_statement(stmt, indent)
         elif isinstance(stmt, BlockStatement):
             self._generate_block_statement(stmt, indent)
+        elif isinstance(stmt, MatchStatement):
+            self._generate_match_statement(stmt, indent)
+        elif isinstance(stmt, FunctionDeclaration):
+            # Function declarations are handled separately in _generate_function
+            # This should not be called for function declarations in main method
+            pass
     
     def _generate_variable_declaration(self, var: VariableDeclaration, indent: str):
         """生成变量声明"""
@@ -171,6 +290,37 @@ class JVMCodeGenerator:
                 self._generate_statement(stmt, indent + "    ")
         
         self.java_code.append(f"{indent}}}")
+    
+    def _generate_match_statement(self, match_stmt: MatchStatement, indent: str):
+        """生成 match 语句"""
+        expression = self._generate_expression(match_stmt.expression)
+        
+        # 生成 if-else if-else 链
+        for i, case in enumerate(match_stmt.cases):
+            if i == 0:
+                self.java_code.append(f"{indent}if ({self._generate_match_pattern(case.pattern, expression)}) {{")
+            else:
+                self.java_code.append(f"{indent}}} else if ({self._generate_match_pattern(case.pattern, expression)}) {{")
+            
+            # 生成 case 体
+            for stmt in case.body:
+                self._generate_statement(stmt, indent + "    ")
+        
+        self.java_code.append(f"{indent}}}")
+    
+    def _generate_match_pattern(self, pattern: Expression, expression: str) -> str:
+        """生成模式匹配条件"""
+        if isinstance(pattern, Literal):
+            # 字面量模式
+            pattern_value = self._generate_expression(pattern)
+            return f"{expression}.equals({pattern_value})"
+        elif isinstance(pattern, Identifier):
+            # 变量模式（通配符）
+            return "true"
+        else:
+            # 其他模式，使用 equals
+            pattern_value = self._generate_expression(pattern)
+            return f"{expression}.equals({pattern_value})"
     
     def _generate_while_statement(self, while_stmt: WhileStatement, indent: str):
         """生成 while 语句"""
@@ -236,7 +386,36 @@ class JVMCodeGenerator:
         }
         
         java_op = operator_mapping.get(op.operator, op.operator)
+        
+        # 对于算术操作，添加类型转换
+        if op.operator in ['+', '-', '*', '/', '%']:
+            # 检查是否需要类型转换（只有在纯算术操作时才转换）
+            if self._needs_arithmetic_casting(op.left, op.right):
+                left_casted = self._add_arithmetic_casting(op.left)
+                right_casted = self._add_arithmetic_casting(op.right)
+                return f"({left_casted} {java_op} {right_casted})"
+        
         return f"({left} {java_op} {right})"
+    
+    def _needs_arithmetic_casting(self, left, right) -> bool:
+        """检查是否需要算术类型转换"""
+        # 只有在纯算术操作时才需要类型转换
+        # 检查是否都是数字字面量或标识符
+        left_is_numeric = isinstance(left, Literal) and left.type in ['integer', 'float'] or isinstance(left, Identifier)
+        right_is_numeric = isinstance(right, Literal) and right.type in ['integer', 'float'] or isinstance(right, Identifier)
+        return left_is_numeric and right_is_numeric
+    
+    def _add_arithmetic_casting(self, expr) -> str:
+        """添加算术类型转换"""
+        if isinstance(expr, Identifier):
+            # 对于标识符，转换为 Integer
+            return f"((Integer) {expr.name})"
+        elif isinstance(expr, Literal):
+            # 对于字面量，直接返回
+            return self._generate_expression(expr)
+        else:
+            # 对于其他表达式，递归处理
+            return self._generate_expression(expr)
     
     def _generate_unary_op(self, op: UnaryOp) -> str:
         """生成一元操作"""
