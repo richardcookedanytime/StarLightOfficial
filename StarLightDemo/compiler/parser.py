@@ -62,6 +62,12 @@ class Conditional(Expression):
     then_expr: Expression
     else_expr: Expression
 
+@dataclass
+class Lambda(Expression):
+    parameters: List[tuple[str, Optional[str]]]  # (name, type)
+    body: Union[Expression, List['Statement']]
+    return_type: Optional[str]
+
 # 语句节点
 @dataclass
 class Statement(ASTNode):
@@ -818,9 +824,61 @@ class Parser:
             return ident
         
         if self._match(TokenType.LEFT_PAREN):
-            expr = self._parse_expression()
-            self._consume(TokenType.RIGHT_PAREN, "Expected ')' after expression")
-            return expr
+            # 可能是 Lambda 表达式或括号表达式
+            # 先检查是否是 Lambda: (params) => expr
+            saved_pos = self.position
+            
+            # 尝试解析参数列表
+            params = []
+            is_lambda = False
+            
+            if not self._check(TokenType.RIGHT_PAREN):
+                # 尝试解析参数
+                param_name = None
+                if self._match(TokenType.IDENTIFIER):
+                    param_name = self.tokens[self.position - 1].value
+                    
+                    # 检查是否有类型注解
+                    param_type = None
+                    if self._match(TokenType.COLON):
+                        if self._match(TokenType.IDENTIFIER):
+                            param_type = self.tokens[self.position - 1].value
+                    
+                    params.append((param_name, param_type))
+                    
+                    # 检查是否有更多参数
+                    while self._match(TokenType.COMMA):
+                        param_name = self._consume(TokenType.IDENTIFIER, "Expected parameter name").value
+                        param_type = None
+                        if self._match(TokenType.COLON):
+                            param_type = self._consume(TokenType.IDENTIFIER, "Expected parameter type").value
+                        params.append((param_name, param_type))
+            
+            if self._match(TokenType.RIGHT_PAREN):
+                # 检查是否有 => 符号
+                if self._match(TokenType.FAT_ARROW):
+                    is_lambda = True
+            
+            if is_lambda:
+                # 解析 Lambda 体
+                return_type = None
+                
+                # 解析 Lambda 体（可以是表达式或块）
+                if self._check(TokenType.LEFT_BRACE):
+                    self._consume(TokenType.LEFT_BRACE, "Expected '{'")
+                    body = self._parse_block_statements()
+                    self._consume(TokenType.RIGHT_BRACE, "Expected '}'")
+                else:
+                    # 单行表达式
+                    body = self._parse_expression()
+                
+                return Lambda(params, body, return_type)
+            else:
+                # 不是 Lambda，回退并解析普通括号表达式
+                self.position = saved_pos
+                expr = self._parse_expression()
+                self._consume(TokenType.RIGHT_PAREN, "Expected ')' after expression")
+                return expr
         
         return None
     

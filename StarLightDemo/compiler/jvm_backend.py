@@ -349,6 +349,8 @@ class JVMCodeGenerator:
             return self._generate_unary_op(expr)
         elif isinstance(expr, Call):
             return self._generate_call(expr)
+        elif isinstance(expr, Lambda):
+            return self._generate_lambda(expr)
         else:
             return "/* unknown expression */"
     
@@ -441,6 +443,36 @@ class JVMCodeGenerator:
                 return f"System.out.print({', '.join(args)})"
         
         return f"{callee}({', '.join(args)})"
+    
+    def _generate_lambda(self, lambda_expr: Lambda) -> str:
+        """生成 Lambda 表达式"""
+        # 生成参数列表
+        params = []
+        for param_name, param_type in lambda_expr.parameters:
+            if param_type:
+                jvm_type = JVMType.from_starlight_type(param_type)
+                params.append(f"{jvm_type.java_type} {param_name}")
+            else:
+                params.append(param_name)
+        
+        # 生成 Lambda 体
+        if isinstance(lambda_expr.body, list):
+            # 多行 Lambda 体
+            body_code = []
+            for stmt in lambda_expr.body:
+                # 这里需要生成语句代码
+                # 为了简化，暂时返回占位符
+                body_code.append("/* statement */")
+            body_str = " ".join(body_code)
+        else:
+            # 单行 Lambda 体
+            body_str = self._generate_expression(lambda_expr.body)
+        
+        # Java Lambda 语法: (params) -> expression
+        if params:
+            return f"({', '.join(params)}) -> {body_str}"
+        else:
+            return f"() -> {body_str}"
     
     def _generate_complete_java_code(self) -> str:
         """生成完整的 Java 代码"""

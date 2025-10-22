@@ -1,7 +1,7 @@
 # 🌟 Starlight 编程语言
 
 [![License](https://img.shields.io/badge/license-Unlicense-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.0--alpha-orange.svg)](https://github.com/richardcookedanytime/StarLightOfficial/releases)
+[![Version](https://img.shields.io/badge/version-0.3.0--dev-orange.svg)](https://github.com/richardcookedanytime/StarLightOfficial/releases)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
 **"Write once, run anywhere Java does, and anywhere JavaScript does."**
@@ -32,21 +32,23 @@ Starlight 将成为连接 Java 和 JavaScript 世界的桥梁，让开发者能�
 
 ## 🎯 核心特性
 
-### ✅ 已实现功能
+### ✅ 已实现功能 (v0.3.0-dev)
 
 - **完整的编译流程**: 源代码 → Token → AST → 目标代码
 - **多后端支持**: JVM (Java) 和 JavaScript
 - **数据类语法糖**: 简化数据类定义和构造
 - **模式匹配**: 强大的模式匹配表达式
+- **Lambda 表达式**: 匿名函数和闭包支持 ⭐ 新增
 - **类型推断**: 智能的返回类型推断系统
 - **Java 互操作**: 100% 兼容 Java 生态系统
 
-### 🔄 开发中功能
+### 🔄 开发中功能 (v0.3.0)
 
+- **字符串插值**: `"Hello, ${name}"` 语法 (90%)
+- **运算符重载**: 自定义运算符行为 (80%)
 - **扩展函数**: 为现有类型添加新方法
 - **异步/等待**: async/await 语法支持
 - **泛型系统**: 类型参数和泛型约束
-- **Lambda 表达式**: 匿名函数和闭包
 
 ## 🚀 快速开始
 
@@ -83,8 +85,11 @@ node build/hello.js
 ### 运行演示
 
 ```bash
-# 运行完整演示
+# 运行 v0.2.0 演示
 python working_demo.py
+
+# 运行 v0.3.0 新特性演示
+python3 demo_v03.py
 
 # 运行工作流演示
 python demo_workflow.py
@@ -110,7 +115,35 @@ fun main() {
 }
 ```
 
-### 2. 模式匹配 (Pattern Matching)
+### 2. Lambda 表达式 (Lambda Expressions) ⭐ 新增
+
+```starlight
+fun main() {
+    // 简单的 Lambda 表达式
+    let add = (a: int, b: int) => a + b
+    println("5 + 3 = " + add(5, 3))
+    
+    // 无参数 Lambda
+    let greeting = () => "Hello, Starlight!"
+    println(greeting())
+    
+    // Lambda 作为高阶函数参数
+    let numbers = [1, 2, 3, 4, 5]
+    let doubled = map(numbers, (x: int) => x * 2)
+    println("Doubled: " + doubled)
+}
+
+// 高阶函数：map
+fun map(list: array, fn: function): array {
+    let result = []
+    for item in list {
+        result.add(fn(item))
+    }
+    return result
+}
+```
+
+### 3. 模式匹配 (Pattern Matching)
 
 ```starlight
 fun handleResult(result: string): string = match result {
@@ -125,7 +158,7 @@ fun main() {
 }
 ```
 
-### 3. 单行函数语法
+### 4. 单行函数语法
 
 ```starlight
 // 单行函数定义
