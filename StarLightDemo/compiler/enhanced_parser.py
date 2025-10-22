@@ -7,8 +7,8 @@ Starlight 编程语言 - 增强语法分析器
 from typing import List, Optional, Union, Dict, Any, Tuple
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from .parser import *
-from .lexer import TokenType
+from parser import *
+from lexer import TokenType
 
 # 增强的 AST 节点
 @dataclass
@@ -348,7 +348,7 @@ def parse_enhanced_program(tokens: List[Token]) -> Program:
 
 if __name__ == "__main__":
     # 测试增强解析器
-    from .lexer import Lexer
+    from lexer import Lexer
     
     test_code = '''
     @version("1.0")

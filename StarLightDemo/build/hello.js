@@ -2,3 +2,15 @@
 // Module: hello
 
 export { main };
+
+function greet(name) {
+    return (("Hello, " + name) + "! Welcome to Starlight!");
+}
+
+function main() {
+    let message = greet("World");
+    console.log(message);
+}
+
+// Auto-call main function
+main();

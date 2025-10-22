@@ -129,6 +129,12 @@ class StructDeclaration(Statement):
     fields: List[tuple[str, str]]  # (name, type)
 
 @dataclass
+class DataClassDeclaration(Statement):
+    name: str
+    fields: List[tuple[str, str]]  # (name, type)
+    methods: List[FunctionDeclaration]
+
+@dataclass
 class EnumDeclaration(Statement):
     name: str
     variants: List[tuple[str, Optional[str]]]  # (name, type)
@@ -234,6 +240,8 @@ class Parser:
             return self._parse_variable_declaration()
         elif self._match(TokenType.STRUCT):
             return self._parse_struct_declaration()
+        elif self._match(TokenType.DATA):
+            return self._parse_data_class_declaration()
         elif self._match(TokenType.ENUM):
             return self._parse_enum_declaration()
         elif self._match(TokenType.INTERFACE):
@@ -293,9 +301,15 @@ class Parser:
             return_type = self._consume(TokenType.IDENTIFIER, "Expected return type").value
         
         # 解析函数体
-        self._consume(TokenType.LEFT_BRACE, "Expected '{' before function body")
-        body = self._parse_block_statements()
-        self._consume(TokenType.RIGHT_BRACE, "Expected '}' after function body")
+        if self._match(TokenType.ASSIGN):
+            # 单行函数体
+            expr = self._parse_expression()
+            body = [ReturnStatement(expr)]
+        else:
+            # 多行函数体
+            self._consume(TokenType.LEFT_BRACE, "Expected '{' before function body")
+            body = self._parse_block_statements()
+            self._consume(TokenType.RIGHT_BRACE, "Expected '}' after function body")
         
         return FunctionDeclaration(name, parameters, return_type, body, False)
     
@@ -379,6 +393,81 @@ class Parser:
         self._consume(TokenType.RIGHT_BRACE, "Expected '}' after struct body")
         
         return StructDeclaration(name, fields)
+    
+    def _parse_data_class_declaration(self) -> DataClassDeclaration:
+        """解析数据类声明"""
+        name = self._consume(TokenType.IDENTIFIER, "Expected data class name").value
+        
+        # 解析字段列表
+        fields = []
+        if self._match(TokenType.LEFT_PAREN):
+            while not self._check(TokenType.RIGHT_PAREN) and not self._is_at_end():
+                field_name = self._consume(TokenType.IDENTIFIER, "Expected field name").value
+                self._consume(TokenType.COLON, "Expected ':' after field name")
+                field_type = self._consume(TokenType.IDENTIFIER, "Expected field type").value
+                fields.append((field_name, field_type))
+                
+                if not self._match(TokenType.COMMA):
+                    break
+            
+            self._consume(TokenType.RIGHT_PAREN, "Expected ')' after field list")
+        
+        # 解析方法体
+        self._consume(TokenType.LEFT_BRACE, "Expected '{' before data class body")
+        
+        methods = []
+        while not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end():
+            if self._match(TokenType.FUNC):
+                method = self._parse_data_class_method()
+                methods.append(method)
+            else:
+                # 跳过其他语句
+                self._advance()
+        
+        self._consume(TokenType.RIGHT_BRACE, "Expected '}' after data class body")
+        
+        return DataClassDeclaration(name, fields, methods)
+    
+    def _parse_data_class_method(self) -> FunctionDeclaration:
+        """解析数据类方法"""
+        name = self._consume(TokenType.IDENTIFIER, "Expected method name").value
+        
+        # 解析参数
+        parameters = []
+        if self._match(TokenType.LEFT_PAREN):
+            while not self._check(TokenType.RIGHT_PAREN) and not self._is_at_end():
+                param_name = self._consume(TokenType.IDENTIFIER, "Expected parameter name").value
+                self._consume(TokenType.COLON, "Expected ':' after parameter name")
+                param_type = self._consume(TokenType.IDENTIFIER, "Expected parameter type").value
+                parameters.append((param_name, param_type))
+                
+                if not self._match(TokenType.COMMA):
+                    break
+            
+            self._consume(TokenType.RIGHT_PAREN, "Expected ')' after parameters")
+        
+        # 解析返回类型
+        return_type = None
+        if self._match(TokenType.COLON):
+            return_type = self._consume(TokenType.IDENTIFIER, "Expected return type").value
+        
+        # 解析方法体
+        if self._match(TokenType.ASSIGN):
+            # 单行方法体
+            expr = self._parse_expression()
+            # 单行方法体不需要分号
+            body = [ReturnStatement(expr)]
+        else:
+            # 多行方法体
+            self._consume(TokenType.LEFT_BRACE, "Expected '{' before method body")
+            body = []
+            while not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end():
+                stmt = self._parse_statement()
+                if stmt:
+                    body.append(stmt)
+            self._consume(TokenType.RIGHT_BRACE, "Expected '}' after method body")
+        
+        return FunctionDeclaration(name, parameters, return_type, body, False)
     
     def _parse_enum_declaration(self) -> EnumDeclaration:
         """解析枚举声明"""
@@ -553,12 +642,21 @@ class Parser:
         
         cases = []
         while not self._check(TokenType.RIGHT_BRACE) and not self._is_at_end():
+            # 跳过换行符
+            self._consume_newlines()
             pattern = self._parse_expression()
             self._consume(TokenType.FAT_ARROW, "Expected '=>' after match pattern")
             
-            self._consume(TokenType.LEFT_BRACE, "Expected '{' before case body")
-            body = self._parse_block_statements()
-            self._consume(TokenType.RIGHT_BRACE, "Expected '}' after case body")
+            # 检查是否是单行表达式还是块
+            if self._check(TokenType.LEFT_BRACE):
+                # 块体
+                self._consume(TokenType.LEFT_BRACE, "Expected '{' before case body")
+                body = self._parse_block_statements()
+                self._consume(TokenType.RIGHT_BRACE, "Expected '}' after case body")
+            else:
+                # 单行表达式
+                expr = self._parse_expression()
+                body = [ExpressionStatement(expr)]
             
             cases.append(MatchCase(pattern, body))
         

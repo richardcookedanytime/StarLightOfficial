@@ -6,8 +6,8 @@ Starlight 编程语言 - 主编译器入口
 import sys
 import argparse
 from pathlib import Path
-from lexer import Lexer
-from parser import Parser
+from .lexer import Lexer
+from .parser import Parser
 
 def main():
     parser = argparse.ArgumentParser(description='Starlight 编程语言编译器')

@@ -256,9 +256,9 @@ def generate_javascript_code(program: Program, module_name: str = "main") -> str
 
 if __name__ == "__main__":
     # 测试 JavaScript 后端
-    from .lexer import Lexer
-    from .parser import Parser
-    from .semantic_analyzer import SemanticAnalyzer
+    from lexer import Lexer
+    from parser import Parser
+    from semantic_analyzer import SemanticAnalyzer
     
     test_code = '''
     func greet(name) {
